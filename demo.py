@@ -1,6 +1,12 @@
 import streamlit as st
 import base64
 import plotly.express as px
+import streamlit_authenticator as stauth
+import sqlite3
+import yaml
+from yaml.loader import SafeLoader
+with open(r'C:\Users\Abhishek\Desktop\credentials.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
 
 # Set the page configuration
 st.set_page_config(
@@ -9,6 +15,34 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="expanded",
 )
+
+conn = sqlite3.connect('data.db')
+c = conn.cursor()
+def create_usertable(): 
+    c.execute('CREATE TABLE IF NOT EXISTS userstable(username TEXT,password TEXT)')
+def add_userdata(username,password):
+    c.execute('INSERT INTO userstable(username,password) VALUES (?,?)', (username,password))
+    conn.commit()
+
+def login_user(username,password):
+    c.execute('SELECT * FROM userstable WHERE username =? AND password = ?', (username,password))
+    data = c.fetchall()
+    return data
+def view_all_users():
+    c.execute('SELECT * FROM userstable')
+    data = c.fetchall()
+    return data
+
+
+authenticator = stauth.Authenticate (
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+    config['preauthorized']
+)
+
+
 
 
 df = px.data.iris()
@@ -64,11 +98,24 @@ def main():
 
     elif choice == "Login":
         st.subheader("Login Section")
-        username = st.sidebar.text_input("User Name")
-        password = st.sidebar.text_input("Password", type='password')
-        if st.sidebar.checkbox("Login"):
-            # Implement your authentication logic here
-            st.success("Logged In as {}".format(username))
+        name, authentication_status, username = authenticator.login('Login', 'main')
+        if authentication_status:
+            authenticator.logout('Logout', 'main')
+        if username == 'tswift':
+            st.write(f'Welcome *{name}*')
+            authenticator.logout('Logout', 'main')
+            st.title('Application 1')
+
+        elif username == 'weeknd':
+            st.write(f'Welcome *{name}*')
+            authenticator.logout('Logout', 'main')
+            st.title('Application 2')
+            
+        elif authentication_status == False:
+            st.error('Username/password is incorrect')
+        elif authentication_status == None:
+            st.warning('Please enter your username and password')
+
 
     elif choice == "SignUp":
         st.subheader("Create a New Account")
@@ -77,6 +124,6 @@ def main():
         if st.button("Signup"):
             # Implement your account creation logic here
             st.success("You have successfully created an account")
-
+            
 if __name__ == "__main__":
     main()
